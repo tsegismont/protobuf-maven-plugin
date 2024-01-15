@@ -94,7 +94,12 @@ final class Protoc {
     private final File javaScriptOutputDirectory;
 
     /**
-     *  A directory into which a custom protoc plugin will generate files.
+     * A directory into which gRPC Web source files will be generated.
+     */
+    private final File grpcWebOutputDirectory;
+
+    /**
+     * A directory into which a custom protoc plugin will generate files.
      */
     private final File customOutputDirectory;
 
@@ -127,27 +132,27 @@ final class Protoc {
     /**
      * Constructs a new instance. This should only be used by the {@link Builder}.
      *
-     * @param executable path to the {@code protoc} executable.
-     * @param protoPath a set of directories in which to search for definition imports.
-     * @param protoFiles a set of protobuf definitions to process.
-     * @param javaOutputDirectory a directory into which Java source files will be generated.
-     * @param cppOutputDirectory a directory into which C++ source files will be generated.
-     * @param pythonOutputDirectory a directory into which Python source files will be generated.
-     * @param csharpOutputDirectory a directory into which C# source files will be generated.
-     * @param javaScriptOutputDirectory a directory into which JavaScript source files will be generated.
-     * @param customOutputDirectory a directory into which a custom protoc plugin will generate files.
-     * @param descriptorSetFile The directory into which a descriptor set will be generated;
-     *                          if {@code null}, no descriptor set will be written
-     * @param includeImportsInDescriptorSet If {@code true}, dependencies will be included in the descriptor set.
+     * @param executable                       path to the {@code protoc} executable.
+     * @param protoPath                        a set of directories in which to search for definition imports.
+     * @param protoFiles                       a set of protobuf definitions to process.
+     * @param javaOutputDirectory              a directory into which Java source files will be generated.
+     * @param cppOutputDirectory               a directory into which C++ source files will be generated.
+     * @param pythonOutputDirectory            a directory into which Python source files will be generated.
+     * @param csharpOutputDirectory            a directory into which C# source files will be generated.
+     * @param javaScriptOutputDirectory        a directory into which JavaScript source files will be generated.
+     * @param customOutputDirectory            a directory into which a custom protoc plugin will generate files.
+     * @param descriptorSetFile                The directory into which a descriptor set will be generated;
+     *                                         if {@code null}, no descriptor set will be written
+     * @param includeImportsInDescriptorSet    If {@code true}, dependencies will be included in the descriptor set.
      * @param includeSourceInfoInDescriptorSet If {@code true}, source code information will be included
      *                                         in the descriptor set.
-     * @param plugins a set of java protoc plugins.
-     * @param pluginDirectory location of protoc plugins to be added to system path.
-     * @param nativePluginId a unique id of a native plugin.
-     * @param nativePluginExecutable path to the native plugin executable.
-     * @param nativePluginParameter an optional parameter for a native plugin.
-     * @param tempDirectory a directory where temporary files will be generated.
-     * @param useArgumentFile If {@code true}, parameters to protoc will be put in an argument file
+     * @param plugins                          a set of java protoc plugins.
+     * @param pluginDirectory                  location of protoc plugins to be added to system path.
+     * @param nativePluginId                   a unique id of a native plugin.
+     * @param nativePluginExecutable           path to the native plugin executable.
+     * @param nativePluginParameter            an optional parameter for a native plugin.
+     * @param tempDirectory                    a directory where temporary files will be generated.
+     * @param useArgumentFile                  If {@code true}, parameters to protoc will be put in an argument file
      */
     private Protoc(
             final String executable,
@@ -158,6 +163,7 @@ final class Protoc {
             final File pythonOutputDirectory,
             final File csharpOutputDirectory,
             final File javaScriptOutputDirectory,
+            final File grpcWebOutputDirectory,
             final File customOutputDirectory,
             final File descriptorSetFile,
             final boolean includeImportsInDescriptorSet,
@@ -187,6 +193,7 @@ final class Protoc {
         this.pythonOutputDirectory = pythonOutputDirectory;
         this.csharpOutputDirectory = csharpOutputDirectory;
         this.javaScriptOutputDirectory = javaScriptOutputDirectory;
+        this.grpcWebOutputDirectory = grpcWebOutputDirectory;
         this.customOutputDirectory = customOutputDirectory;
         this.descriptorSetFile = descriptorSetFile;
         this.includeImportsInDescriptorSet = includeImportsInDescriptorSet;
@@ -287,6 +294,14 @@ final class Protoc {
             outputOption += javaScriptOutputDirectory;
             command.add(outputOption);
         }
+        if (grpcWebOutputDirectory != null) {
+            String outputOption = "--grpc-web_out=";
+            if (nativePluginParameter != null) {
+                outputOption += nativePluginParameter + ':';
+            }
+            outputOption += grpcWebOutputDirectory;
+            command.add(outputOption);
+        }
         if (customOutputDirectory != null) {
             if (nativePluginExecutable != null) {
                 command.add("--plugin=protoc-gen-" + nativePluginId + '=' + nativePluginExecutable);
@@ -364,6 +379,10 @@ final class Protoc {
             if (javaScriptOutputDirectory != null) {
                 log.debug(LOG_PREFIX + "JavaScript output directory:");
                 log.debug(LOG_PREFIX + ' ' + javaScriptOutputDirectory);
+            }
+            if (grpcWebOutputDirectory != null) {
+                log.debug(LOG_PREFIX + "gRPC Web output directory:");
+                log.debug(LOG_PREFIX + ' ' + grpcWebOutputDirectory);
             }
 
             if (descriptorSetFile != null) {
@@ -494,6 +513,11 @@ final class Protoc {
         private File javaScriptOutputDirectory;
 
         /**
+         * A directory into which JavaScript source files will be generated.
+         */
+        private File grpcWebOutputDirectory;
+
+        /**
          * A directory into which a custom protoc plugin will generate files.
          */
         private File customOutputDirectory;
@@ -621,6 +645,25 @@ final class Protoc {
                                 + javaScriptOutputDirectory.getAbsolutePath());
             }
             this.javaScriptOutputDirectory = javaScriptOutputDirectory;
+            return this;
+        }
+
+        /**
+         * Sets the directory into which gRPC Web source files will be generated.
+         *
+         * @param grpcWebOutputDirectory a directory into which gRPC Web source files will be generated.
+         * @return this builder instance.
+         */
+        public Builder setGrpcWebOutputDirectory(final File grpcWebOutputDirectory) {
+            if (grpcWebOutputDirectory == null) {
+                throw new MojoConfigurationException("'grpcWebOutputDirectory' is null");
+            }
+            if (!grpcWebOutputDirectory.isDirectory()) {
+                throw new MojoConfigurationException(
+                        "'javaScriptOutputDirectory' is not a directory: "
+                                + grpcWebOutputDirectory.getAbsolutePath());
+            }
+            this.grpcWebOutputDirectory = grpcWebOutputDirectory;
             return this;
         }
 
@@ -827,12 +870,13 @@ final class Protoc {
                     && pythonOutputDirectory == null
                     && csharpOutputDirectory == null
                     && javaScriptOutputDirectory == null
+                    && grpcWebOutputDirectory == null
                     && customOutputDirectory == null
                     && descriptorSetFile == null) {
                 throw new MojoConfigurationException("At least one of these properties must be set:" +
                         " 'javaOutputDirectory', 'cppOutputDirectory'," +
                         " 'pythonOutputDirectory', 'csharpOutputDirectory', 'javaScriptOutputDirectory'," +
-                        " 'customOutputDirectory', or 'descriptorSetFile'");
+                        " 'grpcWebOutputDirectory', 'customOutputDirectory', or 'descriptorSetFile'");
             }
         }
 
@@ -852,6 +896,7 @@ final class Protoc {
                     pythonOutputDirectory,
                     csharpOutputDirectory,
                     javaScriptOutputDirectory,
+                    grpcWebOutputDirectory,
                     customOutputDirectory,
                     descriptorSetFile,
                     includeImportsInDescriptorSet,
